@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Scam Message Detector</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="mark" aria-hidden="true"></span>
+        <div>
+          <p class="brand-kicker">SMS / Viber screening</p>
+          <h1>Scam Message Detector</h1>
+        </div>
+      </div>
+      <a class="docs-link" href="/docs">API docs</a>
+    </header>
+
+    <main>
+      <section class="hero">
+        <h2>Paste a text. See if it looks like a scam.</h2>
+        <p>
+          A proof-of-concept Random Forest reads the message, scores it, and
+          shows the phrases that pushed the verdict. Not a bank-grade filter.
+        </p>
+      </section>
+
+      <div class="tabs" role="tablist" aria-label="Scan mode">
+        <button id="tab-single" class="tab is-active" type="button" role="tab" aria-selected="true">
+          Single message
+        </button>
+        <button id="tab-batch" class="tab" type="button" role="tab" aria-selected="false">
+          Batch inbox
+        </button>
+      </div>
+
+      <section id="panel-single" class="workspace">
+        <form id="single-form" class="composer card">
+          <label for="message">Message to scan</label>
+          <textarea
+            id="message"
+            name="message"
+            maxlength="5000"
+            rows="8"
+            placeholder="Paste an SMS, Viber, or chat message here."
+            required
+          ></textarea>
+          <div class="composer-meta">
+            <span id="char-count">0 / 5000</span>
+            <span id="single-status" class="status" hidden></span>
+          </div>
+          <div id="samples" class="samples" aria-label="Try a sample"></div>
+          <div class="actions">
+            <button id="scan-btn" class="primary" type="submit">Scan message</button>
+            <button id="clear-btn" class="ghost" type="button">Clear</button>
+          </div>
+        </form>
+
+        <aside class="result card" aria-live="polite">
+          <div id="empty-state" class="empty">
+            <p class="empty-title">No scan yet</p>
+            <p>Paste a message or pick a sample. The verdict, confidence, and contributing phrases will show up here.</p>
+          </div>
+          <div id="error-state" class="banner error" hidden></div>
+          <div id="verdict" hidden>
+            <p id="verdict-label" class="verdict-kicker"></p>
+            <h3 id="verdict-title"></h3>
+            <p id="verdict-advice"></p>
+            <div class="meter">
+              <div class="meter-head">
+                <span>Scam likelihood</span>
+                <strong id="scam-pct"></strong>
+              </div>
+              <div class="meter-track" aria-hidden="true">
+                <div id="scam-bar" class="meter-fill"></div>
+              </div>
+            </div>
+            <h4>Phrases that mattered</h4>
+            <ul id="signals" class="signals"></ul>
+          </div>
+        </aside>
+      </section>
+
+      <section id="panel-batch" class="workspace batch-panel" hidden>
+        <form id="batch-form" class="composer card">
+          <label for="batch-text">One message per line</label>
+          <textarea
+            id="batch-text"
+            name="batch"
+            rows="10"
+            maxlength="20000"
+            placeholder="Paste several messages, each on its own line."
+            required
+          ></textarea>
+          <p class="hint">Up to 50 lines. Blank lines are ignored.</p>
+          <div class="actions">
+            <button class="primary" type="submit">Scan inbox</button>
+          </div>
+        </form>
+        <div class="card table-wrap">
+          <div id="batch-summary" class="batch-summary" hidden></div>
+          <div id="batch-empty" class="empty">
+            <p class="empty-title">Waiting for a list</p>
+            <p>Results appear as a table so you can spot scam rows at a glance.</p>
+          </div>
+          <div id="batch-error" class="banner error" hidden></div>
+          <table id="batch-table" hidden>
+            <thead>
+              <tr>
+                <th>Verdict</th>
+                <th>Confidence</th>
+                <th>Message</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="history card">
+        <div class="history-head">
+          <h3>Recent scans</h3>
+          <button id="clear-history" class="ghost" type="button">Clear history</button>
+        </div>
+        <ul id="history-list" class="history-list">
+          <li class="muted">Scans from this browser stay here until you clear them.</li>
+        </ul>
+      </section>
+    </main>
+
+    <footer>
+      Demo model trained on a small mock SMS set. Do not use this as production fraud detection.
+    </footer>
+    <script src="/static/app.js"></script>
+  </body>
+</html>

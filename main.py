@@ -11,18 +11,21 @@ Interactive docs:  http://127.0.0.1:8765/docs
 
 from __future__ import annotations
 
+import csv
 import logging
 from contextlib import asynccontextmanager
+from io import StringIO
 from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, status
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
 from sklearn.pipeline import Pipeline
 
-from classifier import SAMPLE_MESSAGES, classify_message, load_model
+from classifier import SAMPLE_MESSAGES, classify_message, corpus_stats, load_model
+from feedback import add_feedback, feedback_summary
 from preprocessing import ensure_nltk_data
 
 logging.basicConfig(
@@ -63,6 +66,17 @@ class Signal(BaseModel):
     weight: float = Field(..., ge=0.0)
 
 
+class Cue(BaseModel):
+    id: str
+    label: str
+
+
+class Highlight(BaseModel):
+    start: int = Field(..., ge=0)
+    end: int = Field(..., ge=0)
+    term: str
+
+
 class DetectionResponse(BaseModel):
     """Classification result for a single message."""
 
@@ -83,6 +97,14 @@ class DetectionResponse(BaseModel):
     signals: list[Signal] = Field(
         default_factory=list,
         description="Phrases in the message that most influenced the model.",
+    )
+    cues: list[Cue] = Field(
+        default_factory=list,
+        description="Rule-based warning flags (link, urgency, money, credentials).",
+    )
+    highlights: list[Highlight] = Field(
+        default_factory=list,
+        description="Character spans to mark in the original text.",
     )
     advice: str
 
@@ -108,6 +130,19 @@ class SampleMessage(BaseModel):
 class HealthResponse(BaseModel):
     status: str
     model_loaded: bool
+
+
+class FeedbackRequest(BaseModel):
+    text: str = Field(..., min_length=1, max_length=5000)
+    predicted: str = Field(..., pattern="^(Scam|Legitimate)$")
+    actual: str = Field(..., pattern="^(Scam|Legitimate)$")
+
+
+class ModelStatsResponse(BaseModel):
+    corpus_size: int
+    accuracy: float
+    scam_recall: float
+    note: str
 
 
 @asynccontextmanager
@@ -140,7 +175,7 @@ app = FastAPI(
         "Legitimate or Scam using TF-IDF features and a Random Forest. "
         "Open the web UI at / to paste a message and inspect contributing phrases."
     ),
-    version="2.0.0",
+    version="3.0.0",
     lifespan=lifespan,
 )
 
@@ -190,13 +225,16 @@ def api_info() -> dict[str, Any]:
     """Service descriptor for API clients."""
     return {
         "name": "Scam Message Detection API",
-        "version": "2.0.0",
+        "version": "3.0.0",
         "docs": "/docs",
         "health": "/health",
         "ui": "/",
         "detect": "POST /api/v1/detect",
         "batch": "POST /api/v1/detect/batch",
+        "batch_csv": "POST /api/v1/detect/batch.csv",
         "examples": "GET /api/v1/examples",
+        "feedback": "POST /api/v1/feedback",
+        "stats": "GET /api/v1/model/stats",
     }
 
 
@@ -242,6 +280,63 @@ def detect_batch(payload: BatchDetectRequest) -> BatchDetectResponse:
         scam_count=scam_count,
         legitimate_count=len(results) - scam_count,
     )
+
+
+def _batch_csv(results: list[DetectionResponse]) -> str:
+    buffer = StringIO()
+    writer = csv.writer(buffer)
+    writer.writerow(["prediction", "confidence_score", "scam_probability", "cues", "text"])
+    for item in results:
+        writer.writerow(
+            [
+                item.prediction,
+                item.confidence_score,
+                item.scam_probability,
+                "; ".join(cue.label for cue in item.cues),
+                item.original_text,
+            ]
+        )
+    return buffer.getvalue()
+
+
+@app.post(
+    "/api/v1/detect/batch.csv",
+    tags=["detection"],
+    summary="Classify a batch and download CSV",
+)
+def detect_batch_csv(payload: BatchDetectRequest) -> StreamingResponse:
+    batch = detect_batch(payload)
+    csv_body = _batch_csv(batch.results)
+    return StreamingResponse(
+        iter([csv_body]),
+        media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="scam-scan.csv"'},
+    )
+
+
+@app.get("/api/v1/model/stats", response_model=ModelStatsResponse, tags=["meta"])
+def model_stats() -> ModelStatsResponse:
+    """Accuracy of the loaded model on its own mock training corpus."""
+    model = require_model()
+    return ModelStatsResponse.model_validate(corpus_stats(model))
+
+
+@app.post("/api/v1/feedback", tags=["review"])
+def submit_feedback(payload: FeedbackRequest) -> dict[str, Any]:
+    """Record whether a human agrees with the model on one message."""
+    record = add_feedback(
+        text=payload.text,
+        predicted=payload.predicted,
+        actual=payload.actual,
+        correct=payload.predicted == payload.actual,
+    )
+    return {"saved": True, "record": record, "summary": feedback_summary()}
+
+
+@app.get("/api/v1/feedback", tags=["review"])
+def get_feedback() -> dict[str, Any]:
+    """Recent right/wrong marks plus agreement rate."""
+    return feedback_summary()
 
 
 if STATIC_DIR.exists():

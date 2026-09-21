@@ -18,6 +18,7 @@ from nltk.corpus import stopwords
 logger = logging.getLogger(__name__)
 
 _URL_PATTERN = re.compile(r"https?://\S+|www\.\S+", flags=re.IGNORECASE)
+URL_PATTERN = _URL_PATTERN
 _WHITESPACE_PATTERN = re.compile(r"\s+")
 _PUNCTUATION_TABLE = str.maketrans("", "", string.punctuation)
 

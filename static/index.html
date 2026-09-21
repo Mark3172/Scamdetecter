@@ -34,6 +34,9 @@
         <button id="tab-batch" class="tab" type="button" role="tab" aria-selected="false">
           Batch inbox
         </button>
+        <button id="tab-review" class="tab" type="button" role="tab" aria-selected="false">
+          Review
+        </button>
       </div>
 
       <section id="panel-single" class="workspace">
@@ -68,6 +71,8 @@
             <p id="verdict-label" class="verdict-kicker"></p>
             <h3 id="verdict-title"></h3>
             <p id="verdict-advice"></p>
+            <blockquote id="highlight-quote" class="quote"></blockquote>
+            <ul id="cues" class="cues"></ul>
             <div class="meter">
               <div class="meter-head">
                 <span>Scam likelihood</span>
@@ -79,6 +84,17 @@
             </div>
             <h4>Phrases that mattered</h4>
             <ul id="signals" class="signals"></ul>
+            <div class="feedback-row">
+              <span>Was this verdict right?</span>
+              <button id="fb-yes" class="ghost" type="button">Yes</button>
+              <button id="fb-no" class="ghost" type="button">No</button>
+              <span id="fb-status" class="muted"></span>
+            </div>
+            <div id="fb-correct" class="feedback-correct" hidden>
+              <span>Mark the true label:</span>
+              <button id="fb-scam" class="ghost" type="button">It was a scam</button>
+              <button id="fb-legit" class="ghost" type="button">It was legitimate</button>
+            </div>
           </div>
         </aside>
       </section>
@@ -97,6 +113,7 @@
           <p class="hint">Up to 50 lines. Blank lines are ignored.</p>
           <div class="actions">
             <button class="primary" type="submit">Scan inbox</button>
+            <button id="download-csv" class="ghost" type="button" hidden>Download CSV</button>
           </div>
         </form>
         <div class="card table-wrap">
@@ -116,6 +133,25 @@
             </thead>
             <tbody></tbody>
           </table>
+        </div>
+      </section>
+
+      <section id="panel-review" class="workspace review-panel" hidden>
+        <div class="card">
+          <h3>Demo model</h3>
+          <p id="stats-note" class="hint">Accuracy on the mock training SMS set.</p>
+          <dl id="stats-grid" class="stats-grid">
+            <div><dt>Examples</dt><dd id="stat-size">—</dd></div>
+            <div><dt>In-sample accuracy</dt><dd id="stat-acc">—</dd></div>
+            <div><dt>Scam recall</dt><dd id="stat-recall">—</dd></div>
+          </dl>
+        </div>
+        <div class="card">
+          <h3>Your marks</h3>
+          <p id="feedback-summary" class="hint">Agree or correct a verdict after you scan.</p>
+          <ul id="feedback-list" class="history-list">
+            <li class="muted">No feedback yet.</li>
+          </ul>
         </div>
       </section>
 

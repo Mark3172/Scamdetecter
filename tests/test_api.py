@@ -42,6 +42,10 @@ def test_detect_scam_includes_explanation(client):
     assert 0 <= body["scam_probability"] <= 1
     assert body["advice"]
     assert isinstance(body["signals"], list)
+    assert "cues" in body
+    assert any(cue["id"] == "url" for cue in body["cues"])
+    assert body["highlights"]
+    assert any(span["term"] == "link / URL" for span in body["highlights"])
 
 
 def test_detect_legitimate(client):
@@ -73,3 +77,32 @@ def test_examples_endpoint(client):
     body = response.json()
     assert len(body) >= 4
     assert {"id", "title", "text"} <= set(body[0].keys())
+
+
+def test_batch_csv_download(client):
+    response = client.post(
+        "/api/v1/detect/batch.csv",
+        json={"messages": [{"text": BANK_SCAM}, {"text": DINNER}]},
+    )
+    assert response.status_code == 200
+    assert "text/csv" in response.headers["content-type"]
+    assert "Scam" in response.text
+    assert "Legitimate" in response.text
+
+
+def test_feedback_and_stats(client):
+    stats = client.get("/api/v1/model/stats")
+    assert stats.status_code == 200
+    body = stats.json()
+    assert body["corpus_size"] >= 20
+    assert body["accuracy"] >= 0.9
+
+    marked = client.post(
+        "/api/v1/feedback",
+        json={"text": DINNER, "predicted": "Legitimate", "actual": "Legitimate"},
+    )
+    assert marked.status_code == 200
+    assert marked.json()["record"]["correct"] is True
+    summary = client.get("/api/v1/feedback")
+    assert summary.status_code == 200
+    assert summary.json()["count"] >= 1

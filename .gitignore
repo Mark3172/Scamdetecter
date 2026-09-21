@@ -5,6 +5,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 .pytest_cache/
+data/feedback.jsonl
 .mypy_cache/
 .ruff_cache/
 *.egg-info/
